@@ -6,14 +6,14 @@ import (
 	"log"
 	"sqlc-test/env"
 
-	_ "github.com/lib/pq"
+	"github.com/samber/do"
 )
 
-type db struct {
+type DbConn struct {
 	*sql.DB
 }
 
-func NewDbConnection() (*db, error) {
+func NewDbConnection(i *do.Injector) (*DbConn, error) {
 	dbURI := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
 		env.GetAsString("DB_USER", "postgres"),
 		env.GetAsString("DB_PASSWORD", "mysecretpassword"),
@@ -34,5 +34,5 @@ func NewDbConnection() (*db, error) {
 		return nil, err
 	}
 
-	return &db{database}, nil
+	return &DbConn{database}, nil
 }

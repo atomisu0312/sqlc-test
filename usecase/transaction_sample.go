@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+	"sqlc-test/config"
 	"sqlc-test/gen"
 	"sqlc-test/repository"
 	"sqlc-test/transaction"
 	"time"
+
+	"github.com/samber/do"
 )
 
 // CreateWorkoutTxParams はワークアウト作成のパラメータを表します
@@ -30,7 +32,7 @@ type CreateWorkoutTxResult struct {
 
 // ハンドラから直接呼ばれるのがユースケース
 type useCase struct {
-	db *sql.DB
+	dbConn *config.DbConn
 }
 
 type UseCase interface {
@@ -38,16 +40,18 @@ type UseCase interface {
 }
 
 // NewUseCase は新しい UseCase インスタンスを作成します
-func NewUseCase(db *sql.DB) UseCase {
+func NewUseCase(i *do.Injector) (UseCase, error) {
+	dbConn := do.MustInvoke[*config.DbConn](i)
+
 	return &useCase{
-		db: db,
-	}
+		dbConn: dbConn,
+	}, nil
 }
 
 // AddWorkoutTx はワークアウトを作成するトランザクションを実行します
 func (useCase *useCase) AddWorkoutTx(ctx context.Context, arg CreateWorkoutTxParams) (CreateWorkoutTxResult, error) {
 	var result CreateWorkoutTxResult
-	tr := transaction.NewTx(useCase.db)
+	tr := transaction.NewTx(useCase.dbConn.DB)
 	err := tr.ExecTx(ctx, func(q *gen.Queries) error {
 		repo := repository.NewExerciseRepository(q)
 

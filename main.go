@@ -8,14 +8,23 @@ import (
 	service "sqlc-test/usecase"
 	"time"
 
+	"github.com/samber/do"
+
 	_ "github.com/lib/pq" // PostgreSQL ドライバをインポート
 )
 
 func main() {
 
-	// Open the database
-	db, err := config.NewDbConnection()
+	injector := do.New()
 
+	do.Provide(injector, config.NewDbConnection)
+
+	do.Provide(injector, service.NewUseCase)
+
+	// 接続そのものはDIコンテナから取り出している
+	//dbConn := do.MustInvoke[*config.DbConn](injector)
+
+	/**
 	if err != nil {
 		panic(err)
 	}
@@ -24,6 +33,7 @@ func main() {
 	if err := db.DB.Ping(); err != nil {
 		log.Fatalln("Error from database ping:", err)
 	}
+		**/
 
 	ctx := context.Background()
 
@@ -38,7 +48,7 @@ func main() {
 	}
 
 	// UseCaseのインスタンスを作成
-	useCase := service.NewUseCase(db.DB)
+	useCase := do.MustInvoke[service.UseCase](injector)
 
 	// ワークアウトトランザクションを実行
 	result, err := useCase.AddWorkoutTx(ctx, workoutParams)
