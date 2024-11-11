@@ -29,43 +29,47 @@ type CreateWorkoutTxResult struct {
 }
 
 // ハンドラから直接呼ばれるのがユースケース
-type UseCase struct {
-	*gen.Queries
+type useCase struct {
 	db *sql.DB
 }
 
+type UseCase interface {
+	AddWorkoutTx(ctx context.Context, arg CreateWorkoutTxParams) (CreateWorkoutTxResult, error)
+}
+
 // NewUseCase は新しい UseCase インスタンスを作成します
-func NewUseCase(db *sql.DB) *UseCase {
-	return &UseCase{
-		db:      db,
-		Queries: gen.New(db),
+func NewUseCase(db *sql.DB) UseCase {
+	return &useCase{
+		db: db,
 	}
 }
 
 // AddWorkoutTx はワークアウトを作成するトランザクションを実行します
-func (useCase *UseCase) AddWorkoutTx(ctx context.Context, arg CreateWorkoutTxParams) (CreateWorkoutTxResult, error) {
+func (useCase *useCase) AddWorkoutTx(ctx context.Context, arg CreateWorkoutTxParams) (CreateWorkoutTxResult, error) {
 	var result CreateWorkoutTxResult
 	tr := transaction.NewTx(useCase.db)
 	err := tr.ExecTx(ctx, func(q *gen.Queries) error {
 		repo := repository.NewExerciseRepository(q)
+
 		workout, err := repo.CreateExercise(ctx, "ExerciseDDDD")
+
 		if err != nil {
 			return fmt.Errorf("error create workout %w", err)
 		}
+
 		for _, set := range arg.Sets {
 			setParams := gen.CreateSetParams{
 				ExerciseID: set.ExerciseID,
 				Weight:     set.Weight,
 			}
-			// 例として、2番目のセットでエラーをスローする
-			// if i == 1 {
-			// 	return fmt.Errorf("simulated error for rollback test")
-			// }
+
 			_, err := repo.CreateSet(ctx, setParams)
+
 			if err != nil {
 				return fmt.Errorf("error create workout set %w", err)
 			}
 		}
+
 		result.WorkoutID = workout
 		return nil
 	})
