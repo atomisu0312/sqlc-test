@@ -3,7 +3,6 @@ package transaction
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"sqlc-test/gen"
 )
 
@@ -24,12 +23,30 @@ func (tx *Tx) ExecTx(ctx context.Context, fn func(*gen.Queries) error) error {
 		return err
 	}
 	q := gen.New(tx.db).WithTx(txx) //
-	err = fn(q)                     //ここで外から渡した関数を実行する。
-	if err != nil {
-		if rbErr := txx.Rollback(); rbErr != nil {
-			return fmt.Errorf("tx err: %v, rb err: %v", err, rbErr)
+	defer func() {
+		//ここで外から渡した関数を実行する。
+		if err == nil {
+			err = txx.Commit()
 		}
+		if err != nil {
+			err = txx.Rollback()
+		}
+	}()
+
+	err = fn(q)
+	if err != nil {
 		return err
 	}
-	return txx.Commit()
+
+	return nil
+}
+
+func (tx *Tx) ExecNonTx(ctx context.Context, fn func(*gen.Queries) error) error {
+	// トランザクションを張らずに実行
+	q := gen.New(tx.db) //
+	err := fn(q)        //ここで外から渡した関数を実行する。
+	if err != nil {
+		return err
+	}
+	return nil
 }
